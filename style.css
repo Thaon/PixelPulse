@@ -1,0 +1,32 @@
+@font-face {
+  font-family: "Press Start 2p";
+  src: url("https://fonts.googleapis.com/css?family=Press+Start+2P");
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.p5Canvas {
+  z-index: 1;
+  aspect-ratio: 1 / 1;
+  height: 100% !important;
+  width: 100% !important;
+  /* scaling should be pixel perfect */
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  /* // font scaling should also be pixel perfect */
+  -webkit-font-smoothing: none;
+  /* font should align to grid, pixel by pixel */
+  font-smooth: never;
+  /* no anti-aliasing */
+  -moz-osx-font-smoothing: grayscale;
+}
