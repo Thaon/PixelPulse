@@ -1,5 +1,7 @@
 # PixelPulse
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Description
 
 PixelPulse is a game engine that allows you to create and play games in your web browser. The engine is designed to be simple and easy to use, and is perfect for creating 2D games.
