@@ -42,4 +42,4 @@ If you find a bug or would like to request a new feature, please open an issue.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE.md).
