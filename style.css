@@ -25,8 +25,4 @@ body {
   -ms-interpolation-mode: nearest-neighbor;
   /* // font scaling should also be pixel perfect */
   -webkit-font-smoothing: none;
-  /* font should align to grid, pixel by pixel */
-  font-smooth: never;
-  /* no anti-aliasing */
-  -moz-osx-font-smoothing: grayscale;
 }

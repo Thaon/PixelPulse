@@ -1,3 +1,4 @@
+let __running = true;
 // if there's a game ID in the search params, fetch it
 let __gameID = new URLSearchParams(window.location.search).get("game");
 if (__gameID) {
@@ -19,6 +20,13 @@ if (__gameID) {
     });
 }
 
+__code = new URLSearchParams(window.location.search).get("code");
+if (!__code) __code = localStorage.getItem("code");
+if (!__code) {
+  console.log("No code found");
+  __code = `//setup//
+//update//`;
+}
 // setup listeners for joystick and buttons
 window.addEventListener("message", (e) => {
   if (e.data.type === "joystick") {
@@ -36,6 +44,20 @@ window.addEventListener("message", (e) => {
     }
   }
 });
+// disable scrollinng
+window.addEventListener(
+  "keydown",
+  function (e) {
+    if (
+      ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(
+        e.code
+      ) > -1
+    ) {
+      e.preventDefault();
+    }
+  },
+  false
+);
 
 console.log("Starting Engine");
 __canvasCreated = false;
@@ -63,57 +85,54 @@ __camera = {
 
 __pressedKeys = [];
 __heldKeys = [];
-__pressedButtons = [];
-__heldButtons = [];
+__pressedButtons = {
+  A: false,
+  B: false,
+  SELECT: false,
+  START: false,
+};
+__heldButtons = {
+  A: false,
+  B: false,
+  SELECT: false,
+  START: false,
+};
 
 __joystick = { x: 0, y: 0 };
 
-__code = localStorage.getItem("code");
-if (!__code) {
-  console.log("No code found");
-  __code = `//globals//
-//setup//
-//update//`;
-}
-__gloablsFN = __code.split("//globals//")[1].split("//setup//")[0];
-__setupFN = __code.split("//setup//")[1].split("//update//")[0];
+// __gloablsFN = __code.split("//globals//")[1].split("//setup//")[0];
+__gloablsFN = __code.split("//setup//")[1].split("//update//")[0];
 __updateFN = __code.split("//update//")[1];
 
 __sprites = JSON.parse(localStorage.getItem("sprites")) || [];
 
 __palette = {
-  a: "aqua",
-  b: "black",
-  c: "crimson",
-  d: "darkviolet",
-  e: "peachpuff",
-  f: "olive",
-  g: "green",
-  h: "hotpink",
-  i: "indigo",
-  j: "navy",
-  k: "khaki",
-  l: "lime",
-  m: "magenta",
-  n: "brown",
-  o: "orange",
-  p: "pink",
-  q: "turquoise",
-  r: "red",
-  s: "skyblue",
-  t: "tan",
-  u: "blue",
-  v: "violet",
-  w: "white",
-  x: "gold",
-  y: "yellow",
-  z: "gray",
+  0: "#000",
+  1: "#9D9D9D",
+  2: "#BE2633",
+  3: "#E06F8B",
+  4: "#493C2B",
+  5: "#A46422",
+  6: "#EB8931",
+  7: "#F7E26B",
+  8: "#2F484E",
+  9: "#44891A",
+  a: "#A3CE27",
+  b: "#1B2632",
+  c: "#005784",
+  d: "#31A2F2",
+  e: "#B2DCEF",
+  f: "#fff",
 };
 
 NET = {
   // networking
   connect: (game_name, room_name = "lobby") => {
-    partyConnect("wss://realtime.leady.in", game_name, room_name);
+    try {
+      partyConnect("wss://realtime.leady.in", game_name, room_name);
+    } catch (e) {
+      console.log(e.stack);
+    }
   },
   isHost: () => partyIsHost(),
   // shared data
@@ -128,94 +147,17 @@ NET = {
   off: (event, callback) => partyUnsubscribe(event, callback),
 };
 
-// Utils -----------------------------------------------------------------------
-
-function _resizeCanvas() {
-  if (!__canvasCreated) {
-    createCanvas(__gameSize, __gameSize);
-    __canvasCreated = true;
-  } else resizeCanvas(__gameSize, __gameSize);
-  noSmooth();
-}
-
-function cameraSetPosition(x, y) {
-  __camera.setPosition(x, y);
-}
-
-function cameraMove(x, y) {
-  __camera.translate(x, y);
-}
-
-function cameraZoom(zoom) {
-  __camera.scale(zoom);
-}
-
-function cameraSetZoom(zoom) {
-  __camera.setScale(zoom);
-}
-
-function colorPal(c) {
-  if (c instanceof p5.Color) return c;
-  let clr = __palette[c];
-  // if transparent
-  if (clr === "" || c === "." || c === " ") {
-    return color(0, 0, 0, 0);
-  }
-  return color(clr || c);
-}
-
-function spriteString(txt, scale = 1) {
-  let lines = txt; // accepts 2D arrays of characters
-  if (typeof txt == "string") {
-    txt = txt.trim();
-    txt = txt.replace(/\r*\n\t+/g, "\n"); // trim leading tabs
-    txt = txt.replace(/\s+$/g, ""); // trim trailing whitespace
-    lines = txt.split("\n");
-  }
-  let w = 0;
-  for (let line of lines) {
-    if (line.length > w) w = line.length;
-  }
-  let h = lines.length;
-  let img = createImage(w * scale, h * scale);
-  img.loadPixels();
-
-  for (let i = 0; i < lines.length; i++) {
-    for (let j = 0; j < lines[i].length; j++) {
-      for (let sX = 0; sX < scale; sX++) {
-        for (let sY = 0; sY < scale; sY++) {
-          let c = colorPal(lines[i][j]);
-          img.set(j * scale + sX, i * scale + sY, c);
-        }
-      }
-    }
-  }
-
-  img.updatePixels();
-  img.w = img.width;
-  img.h = img.height;
-  return img; // return the p5 graphics object
-}
-
-getJoystick = (dimension) => {
-  if (dimension === "x") {
-    return Number(__joystick.x);
-  }
-  if (dimension === "y") {
-    return Number(__joystick.y);
-  }
-  return {
-    x: Number(__joystick.x),
-    y: Number(__joystick.y),
-  };
-};
-
 // p5.js functions -------------------------------------------------------------
 
 function preload() {
   if (__gloablsFN.length > 0) {
-    const __globals = new Function(__gloablsFN);
-    __globals.apply(this, window);
+    try {
+      const __globals = new Function(__gloablsFN);
+      __globals.apply(this, window);
+    } catch (e) {
+      console.log(e.stack);
+      Log(e.stack);
+    }
   }
 }
 
@@ -224,13 +166,18 @@ function setup() {
 
   let font = loadFont("./ponderosa.regular.ttf", () => {
     //Monofett-Regular
-    textSize(7);
+    textSize(10);
     textFont(font);
   });
 
-  if (__setupFN.length == 0) return;
-  const __setup = new Function(__setupFN);
-  __setup.apply(window);
+  // if (__setupFN.length == 0) return;
+  // try {
+  //   const __setup = new Function(__setupFN);
+  //   __setup.apply(window);
+  // } catch (e) {
+  //   console.log(e);
+  //   Log(e.stack);
+  // }
 
   rectMode(CORNER);
   ellipseMode(CENTER);
@@ -247,34 +194,122 @@ function draw() {
     fill("#D4CFD0");
     text("No code found", 64, 64);
   } else {
-    background("#212123");
+    background("#fff");
     // camera translate and zoom
     push();
-    translate(64 - __camera.x, 64 - __camera.y);
+    translate(__camera.x, __camera.y);
     scale(__camera.zoom);
     // fill("#D4CFD0");
     deltaTime = deltaTime / 1000;
     // call update
-    const __update = new Function(__updateFN);
-    __update.apply(this);
+    if (__running) {
+      try {
+        const __update = new Function(__updateFN);
+        __update.apply(this);
+      } catch (e) {
+        console.log(e.stack);
+        Log(e.stack);
+        __running = false;
+      }
+    }
     // reset keys buffer
     __pressedKeys = [];
-    __pressedButtons = [];
+    __pressedButtons = {
+      A: false,
+      B: false,
+      SELECT: false,
+      START: false,
+    };
     pop();
   }
+}
+
+function mousePressed() {
+  userStartAudio();
 }
 
 function keyPressed() {
   __pressedKeys[keyCode] = true;
   __heldKeys[keyCode] = true;
-}
 
-function buttonPressed(button) {
-  return __pressedButtons[button];
+  // set joystick on arrow keys
+  if (keyCode === LEFT_ARROW) __joystick.x = -100;
+  if (keyCode === RIGHT_ARROW) __joystick.x = 100;
+  if (keyCode === UP_ARROW) __joystick.y = -100;
+  if (keyCode === DOWN_ARROW) __joystick.y = 100;
+
+  // set buttons
+  if (keyCode === 90) {
+    __pressedButtons["A"] = true;
+    __heldButtons["A"] = true;
+  }
+  if (keyCode === 88) {
+    __pressedButtons["B"] = true;
+    __heldButtons["B"] = true;
+  }
+  if (keyCode === 65) {
+    __pressedButtons["SELECT"] = true;
+    __heldButtons["SELECT"] = true;
+  }
+  if (keyCode === 83) {
+    __pressedButtons["START"] = true;
+    __heldButtons["START"] = true;
+  }
 }
 
 function keyReleased() {
   __heldKeys[keyCode] = false;
+
+  // set joystick on arrow keys
+  if (keyCode === LEFT_ARROW && __joystick.x < 0) __joystick.x = 0;
+  if (keyCode === RIGHT_ARROW && __joystick.x > 0) __joystick.x = 0;
+  if (keyCode === UP_ARROW && __joystick.y < 0) __joystick.y = 0;
+  if (keyCode === DOWN_ARROW && __joystick.y > 0) __joystick.y = 0;
+
+  // set buttons
+  if (keyCode === 90) {
+    __pressedButtons["A"] = false;
+    __heldButtons["A"] = false;
+  }
+  if (keyCode === 88) {
+    __pressedButtons["B"] = false;
+    __heldButtons["B"] = false;
+  }
+  if (keyCode === 65) {
+    __pressedButtons["SELECT"] = false;
+    __heldButtons["SELECT"] = false;
+  }
+  if (keyCode === 83) {
+    __pressedButtons["START"] = false;
+    __heldButtons["START"] = false;
+  }
+}
+
+// Engine functions ------------------------------------------------------------
+
+function getJoystick(dimension) {
+  if (dimension === "x") {
+    return Number(__joystick.x);
+  }
+  if (dimension === "y") {
+    return Number(__joystick.y);
+  }
+  return {
+    x: Number(__joystick.x),
+    y: Number(__joystick.y),
+  };
+}
+
+function input(keyCode) {
+  return __pressedKeys[keyCode];
+}
+
+function inputDown(keyCode) {
+  return __heldKeys[keyCode];
+}
+
+function buttonPressed(button) {
+  return __pressedButtons[button];
 }
 
 function buttonReleased(button) {
@@ -285,29 +320,33 @@ function buttonDown(button) {
   return __heldButtons[button];
 }
 
-// Engine functions ------------------------------------------------------------
-
-function input(keyCode) {
-  return __pressedKeys[keyCode];
+function setColor(color) {
+  fill(col(color));
+  stroke(col(color));
 }
 
-function char(letter, x, y) {
-  text(letter, x, y);
+function bgColor(color) {
+  background(col(color));
 }
 
 function pixel(x, y, color) {
   noStroke();
-  let c = colorPal(color);
+  let c = col(color);
   fill(c);
   square(x, y, 1);
 }
 
-function getSprite(index) {
-  let sprite = __sprites[index] || "";
-  return spriteString(sprite);
+function saveSprite(sprite, index) {
+  __sprites[index] = sprite;
+  localStorage.setItem("sprites", JSON.stringify(__sprites));
 }
 
-function createAnimation(frameFrom, frameTo) {
+function getSprite(index, scale = 1) {
+  let sprite = __sprites[index] || "";
+  return spriteString(sprite, scale);
+}
+
+function createAnimation(frameFrom, frameTo, scale) {
   let frames = [];
   let currentFrame = 0;
   let frameDelay = 0;
@@ -315,7 +354,7 @@ function createAnimation(frameFrom, frameTo) {
   let loop = true;
 
   for (let i = frameFrom; i <= frameTo; i++) {
-    frames.push(getSprite(i));
+    frames.push(getSprite(i, scale));
   }
   return {
     frames,
@@ -324,7 +363,7 @@ function createAnimation(frameFrom, frameTo) {
     play: (x, y, speed) => {
       if (!frames.length) return;
       if (loop || (!loop && currentFrame < frames.length - 1)) {
-        frameDelay += (speed || 1) * (deltaTime / 1000);
+        frameDelay += (speed || 1) * deltaTime;
       }
       if (frameDelay >= 1) {
         frameDelay = 0;
@@ -365,48 +404,161 @@ function addCollider(type, width, height) {
     onCollision: (object) => {
       if (object.collider == null) throw new Error("Object has no collider");
       if (this.collider.type == "circle" && object.collider.type == "circle") {
-        // calculate distance between the two circles
-        let distance = dist(this.x, this.y, object.x, object.y);
-        return distance < this.collider.width / 2 + object.collider.width / 2;
+        return collideCircleCircle(
+          this.x,
+          this.y,
+          this.collider.width,
+          object.x,
+          object.y,
+          object.collider.width
+        );
       }
       if (this.collider.type == "box" && object.collider.type == "circle") {
-        // calculate distance between the box and the circle
-        let closestX = constrain(
-          object.x,
+        return collideRectCircle(
           this.x,
-          this.x + this.collider.width
-        );
-        let closestY = constrain(
-          object.y,
           this.y,
-          this.y + this.collider.height
+          this.collider.width,
+          this.collider.height,
+          object.x,
+          object.y,
+          object.collider.width
         );
-        let distance = dist(object.x, object.y, closestX, closestY);
-        return distance < object.collider.width / 2;
       }
       if (this.collider.type == "circle" && object.collider.type == "box") {
-        // calculate distance between the box and the circle
-        let closestX = constrain(
-          this.x,
+        return collideRectCircle(
           object.x,
-          object.x + object.collider.width
-        );
-        let closestY = constrain(
-          this.y,
           object.y,
-          object.y + object.collider.height
+          object.collider.width,
+          object.collider.height,
+          this.x,
+          this.y,
+          this.collider.width
         );
-        let distance = dist(this.x, this.y, closestX, closestY);
-        return distance < this.collider.width / 2;
       }
       if (this.collider.type == "box" && object.collider.type == "box") {
-        return (
-          this.x < object.x + object.collider.width &&
-          this.x + this.collider.width > object.x &&
-          this.y < object.y + object.collider.height &&
-          this.y + this.collider.height > object.y
+        return collideRectRect(
+          this.x,
+          this.y,
+          this.collider.width,
+          this.collider.height,
+          object.x,
+          object.y,
+          object.collider.width,
+          object.collider.height
         );
       }
     },
   };
+}
+
+function createSoundTrack(bpm, notes) {
+  // note format: "NoteOctave#duration_velocity" or "-" for pause
+  let part = new p5.Part();
+  let phrase = new p5.Phrase(
+    "",
+    (time, noteString) => {
+      // console.log(time, noteString, bpm, bpm / 10);
+      // if (noteString == "-") console.log("Pause");
+      if (noteString != "-") {
+        let [noteAndDuration, velocity] = noteString.split("_");
+        if (!velocity) velocity = 1;
+        let [note, duration] = noteAndDuration.split("#");
+        let synth = new p5.PolySynth();
+        synth.play(
+          note,
+          Number(velocity / 10),
+          time,
+          Number(duration) / (bpm / 10)
+        );
+      }
+    },
+    notes.split(" ")
+  );
+
+  part.addPhrase(phrase);
+  part.setBPM(bpm);
+
+  return {
+    play: function () {
+      part.start();
+    },
+    stop: function () {
+      part.stop();
+    },
+  };
+}
+
+// Utils -----------------------------------------------------------------------
+
+Log = (msg) => {
+  // post to window
+  console.log(msg);
+  window.parent.postMessage({ type: "log", detail: msg }, "*");
+};
+
+function _resizeCanvas() {
+  if (!__canvasCreated) {
+    createCanvas(__gameSize, __gameSize);
+    __canvasCreated = true;
+  } else resizeCanvas(__gameSize, __gameSize);
+  noSmooth();
+}
+
+function cameraSetPosition(x, y) {
+  __camera.setPosition(x, y);
+}
+
+function cameraMove(x, y) {
+  __camera.translate(x, y);
+}
+
+function cameraZoom(zoom) {
+  __camera.scale(zoom);
+}
+
+function cameraSetZoom(zoom) {
+  __camera.setScale(zoom);
+}
+
+function col(c) {
+  if (c instanceof p5.Color) return c;
+  let clr = __palette[c];
+  // if transparent
+  if (clr === "" || c === "." || c === " ") {
+    return color(0, 0, 0, 0);
+  }
+  return color(clr || c);
+}
+
+function spriteString(txt, scale = 1) {
+  let lines = txt; // accepts 2D arrays of characters
+  if (typeof txt == "string") {
+    txt = txt.trim();
+    txt = txt.replace(/\r*\n\t+/g, "\n"); // trim leading tabs
+    txt = txt.replace(/\s+$/g, ""); // trim trailing whitespace
+    lines = txt.split("\n");
+  }
+  let w = 0;
+  for (let line of lines) {
+    if (line.length > w) w = line.length;
+  }
+  let h = lines.length;
+  let img = createImage(w * scale, h * scale);
+  img.loadPixels();
+
+  for (let i = 0; i < lines.length; i++) {
+    for (let j = 0; j < lines[i].length; j++) {
+      for (let sX = 0; sX < scale; sX++) {
+        for (let sY = 0; sY < scale; sY++) {
+          let c = col(lines[i][j]);
+          img.set(j * scale + sX, i * scale + sY, c);
+        }
+      }
+    }
+  }
+
+  img.updatePixels();
+  img.w = img.width;
+  img.h = img.height;
+  return img; // return the p5 graphics object
 }
