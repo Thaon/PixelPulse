@@ -105,6 +105,7 @@ __gloablsFN = __code.split("//setup//")[1].split("//update//")[0];
 __updateFN = __code.split("//update//")[1];
 
 __sprites = JSON.parse(localStorage.getItem("sprites")) || [];
+__soundEffects = JSON.parse(localStorage.getItem("soundEffects")) || [];
 
 __palette = {
   0: "#000",
@@ -178,9 +179,6 @@ function setup() {
   //   console.log(e);
   //   Log(e.stack);
   // }
-
-  rectMode(CORNER);
-  ellipseMode(CENTER);
 }
 
 function windowResized() {
@@ -321,17 +319,17 @@ function buttonDown(button) {
 }
 
 function setColor(color) {
-  fill(col(color));
-  stroke(col(color));
+  fill(_col(color));
+  stroke(_col(color));
 }
 
 function bgColor(color) {
-  background(col(color));
+  background(_col(color));
 }
 
 function pixel(x, y, color) {
   noStroke();
-  let c = col(color);
+  let c = _col(color);
   fill(c);
   square(x, y, 1);
 }
@@ -391,6 +389,19 @@ function createAnimation(frameFrom, frameTo, scale) {
     },
   };
 }
+
+function saveSFX(sfx, name) {
+  let encoded = sfxr.b58encode(sfx);
+  __soundEffects[name] = encoded;
+  localStorage.setItem("soundEffects", JSON.stringify(__soundEffects));
+}
+
+function loadSFX(name) {
+  if (__soundEffects[name] == null) throw new Error("Sound effect not found");
+  return sfxr.toAudio(__soundEffects[name])
+}
+
+
 
 function addCollider(type, width, height) {
   // add a collider to the object calling this function
@@ -453,6 +464,7 @@ function addCollider(type, width, height) {
 
 function createSoundTrack(bpm, notes) {
   // note format: "NoteOctave#duration_velocity" or "-" for pause
+  let synth = new p5.PolySynth();
   let part = new p5.Part();
   let phrase = new p5.Phrase(
     "",
@@ -460,15 +472,13 @@ function createSoundTrack(bpm, notes) {
       // console.log(time, noteString, bpm, bpm / 10);
       // if (noteString == "-") console.log("Pause");
       if (noteString != "-") {
-        let [noteAndDuration, velocity] = noteString.split("_");
-        if (!velocity) velocity = 1;
-        let [note, duration] = noteAndDuration.split("#");
-        let synth = new p5.PolySynth();
+        let [noteAndDuration, velocity = 10] = noteString.split("_");
+        let [note, duration = 1] = noteAndDuration.split("#");
         synth.play(
           note,
-          Number(velocity / 10),
+          Number(velocity),
           time,
-          Number(duration) / (bpm / 10)
+          Number(duration) / Number(bpm)
         );
       }
     },
@@ -520,7 +530,7 @@ function cameraSetZoom(zoom) {
   __camera.setScale(zoom);
 }
 
-function col(c) {
+function _col(c) {
   if (c instanceof p5.Color) return c;
   let clr = __palette[c];
   // if transparent
@@ -528,6 +538,15 @@ function col(c) {
     return color(0, 0, 0, 0);
   }
   return color(clr || c);
+}
+
+function getColor(c) {
+  return _col(c);
+}
+
+function randomColor() {
+  let keys = Object.keys(__palette);
+  return __palette[keys[Math.floor(Math.random() * keys.length)]];
 }
 
 function spriteString(txt, scale = 1) {
@@ -550,7 +569,7 @@ function spriteString(txt, scale = 1) {
     for (let j = 0; j < lines[i].length; j++) {
       for (let sX = 0; sX < scale; sX++) {
         for (let sY = 0; sY < scale; sY++) {
-          let c = col(lines[i][j]);
+          let c = _col(lines[i][j]);
           img.set(j * scale + sX, i * scale + sY, c);
         }
       }
