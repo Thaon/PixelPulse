@@ -398,10 +398,8 @@ function saveSFX(sfx, name) {
 
 function loadSFX(name) {
   if (__soundEffects[name] == null) throw new Error("Sound effect not found");
-  return sfxr.toAudio(__soundEffects[name])
+  return sfxr.toAudio(__soundEffects[name]);
 }
-
-
 
 function addCollider(type, width, height) {
   // add a collider to the object calling this function
